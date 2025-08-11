@@ -71,3 +71,22 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+
+## Backend and Model Training
+
+The project includes a simple FastAPI backend that powers the `/predict` endpoint. Install dependencies and run the server:
+
+```bash
+pip install -r backend/requirements.txt
+uvicorn backend.main:app --reload
+```
+
+If `backend/models/model.pt` exists, the server will load it for inference; otherwise a deterministic mock model is used so the app remains functional without training.
+
+To train a custom model, add images to `backend/data/{layup,jump_shot,dunk}/` and run:
+
+```bash
+python backend/train.py --data_dir backend/data --epochs 5 --out backend/models/model.pt
+```
+
+This script fine-tunes a ResNet18 head and saves weights to the specified path.
