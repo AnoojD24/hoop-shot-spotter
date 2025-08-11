@@ -6,46 +6,22 @@ import { PredictionDisplay, type Prediction } from '@/components/PredictionDispl
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
+const iconMap = {
+  'Layup': <Activity className="h-6 w-6 text-primary" />, 
+  'Jump Shot': <Target className="h-6 w-6 text-primary" />, 
+  'Dunk': <Zap className="h-6 w-6 text-primary" />
+};
+
+const descriptionMap = {
+  'Layup': 'Close-range shot near the basket',
+  'Jump Shot': 'Mid-range or three-point shot with feet off ground',
+  'Dunk': 'Forceful shot where ball is slammed into basket'
+};
+
 const Index = () => {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-
-  // Mock prediction function (replace with actual API call later)
-  const generateMockPredictions = (): Prediction[] => {
-    const shotTypes: Array<{ type: 'Layup' | 'Jump Shot' | 'Dunk', icon: React.ReactNode, description: string }> = [
-      { 
-        type: 'Jump Shot', 
-        icon: <Target className="h-6 w-6 text-primary" />,
-        description: 'Mid-range or three-point shot with feet off ground'
-      },
-      { 
-        type: 'Layup', 
-        icon: <Activity className="h-6 w-6 text-primary" />,
-        description: 'Close-range shot near the basket'
-      },
-      { 
-        type: 'Dunk', 
-        icon: <Zap className="h-6 w-6 text-primary" />,
-        description: 'Forceful shot where ball is slammed into basket'
-      }
-    ];
-
-    // Generate random but realistic confidence scores
-    const shuffled = [...shotTypes].sort(() => Math.random() - 0.5);
-    const confidences = [
-      75 + Math.random() * 20,  // Top prediction: 75-95%
-      20 + Math.random() * 30,  // Second: 20-50%
-      5 + Math.random() * 15    // Third: 5-20%
-    ];
-
-    return shuffled.map((shot, index) => ({
-      shotType: shot.type,
-      confidence: Math.round(confidences[index] * 10) / 10,
-      icon: shot.icon,
-      description: shot.description
-    })).sort((a, b) => b.confidence - a.confidence);
-  };
 
   const handleImageSelect = (file: File) => {
     setSelectedImage(file);
@@ -60,24 +36,38 @@ const Index = () => {
 
   const handleAnalyze = async () => {
     if (!selectedImage) return;
-
     setIsLoading(true);
-    
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    const mockPredictions = generateMockPredictions();
-    setPredictions(mockPredictions);
-    setIsLoading(false);
-    
-    toast.success(`Shot classified as ${mockPredictions[0].shotType}!`);
+    try {
+      const formData = new FormData();
+      formData.append('file', selectedImage);
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const res = await fetch(`${apiUrl}/predict`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (!res.ok) throw new Error('Prediction failed');
+      const data = await res.json();
+      const preds: Prediction[] = data.predictions.map((p: any) => ({
+        shotType: p.shotType as 'Layup' | 'Jump Shot' | 'Dunk',
+        confidence: p.confidence,
+        icon: iconMap[p.shotType as 'Layup' | 'Jump Shot' | 'Dunk'],
+        description: descriptionMap[p.shotType as 'Layup' | 'Jump Shot' | 'Dunk'],
+      })).sort((a: Prediction, b: Prediction) => b.confidence - a.confidence);
+      setPredictions(preds);
+      toast.success(`Shot classified as ${preds[0].shotType}!`);
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to analyze image');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <div className="min-h-screen py-12 px-4">
       <div className="max-w-4xl mx-auto">
         <HeroSection />
-        
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="space-y-6">
             <ImageUpload
@@ -85,7 +75,7 @@ const Index = () => {
               selectedImage={selectedImage}
               onClearImage={handleClearImage}
             />
-            
+
             {selectedImage && (
               <Button
                 onClick={handleAnalyze}
@@ -97,7 +87,7 @@ const Index = () => {
               </Button>
             )}
           </div>
-          
+
           <div>
             <PredictionDisplay
               predictions={predictions}
